@@ -115,8 +115,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 #else
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, output>0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
 #endif
-		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, duty);
 
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, duty);
 #ifdef DEBUG
 		static uint8_t index = 0;
 		if(index==50){
