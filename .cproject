@@ -58,8 +58,7 @@
 									<listOptionValue builtIn="false" value="../Drivers/CMSIS/Include"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/Src}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/NHK2024_mbd_TestMotorControl/NHK2024_Library/src}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;E:\Tsemi\2023\ABURobocon2024\Software\NHK2024_Library\src&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/NHK2024_mbd_TestMotorControl/Core/NHK2024_Library/src}&quot;"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.541815923" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c"/>
 							</tool>

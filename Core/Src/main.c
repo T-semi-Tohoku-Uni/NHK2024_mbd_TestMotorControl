@@ -37,10 +37,14 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define PID_CONTROL_CYCLE 1 //milli sec
-#define ENC_POLARITY 0
-#define MOTOR_POLARITY 0
 
-#define DEBUG
+#define ENC_POLARITY0 0
+#define ENC_POLARITY1 0
+
+#define MOTOR_POLARITY0 0
+#define MOTOR_POLARITY1 0
+
+#define DEBUG 0
 
 /* USER CODE END PD */
 
@@ -53,17 +57,18 @@
 FDCAN_HandleTypeDef hfdcan1;
 
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim17;
 
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-PID *motor_vel_pid;
-int setpoint = 0;
-double KP = 1;
-double KD = 0.1;
-double KI = 0.01;
+PID motor_vel_pid[2];
+double kp[2] = {1, 1};
+float kd[2] = {0.1, 0.1};
+float ki[2] = {0.01, 0.01};
+double setpoint[2] = {0, 0};
 
 /* USER CODE END PV */
 
@@ -75,6 +80,7 @@ static void MX_FDCAN1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM17_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -92,35 +98,54 @@ int16_t read_encoder_value(TIM_TypeDef *TIM){
 	  return (int16_t)enc_buff;
 }
 
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 
 	if(htim == &htim17){
-		motor_vel_pid->setpoint = setpoint;
+		float vel[2] = {};
 
-#if ENC_POLALITY == 0
-		float vel = read_encoder_value(TIM1)/PID_CONTROL_CYCLE;
+#if ENC_POLALITY0 == 0
+		vel[0] = read_encoder_value(TIM1)/PID_CONTROL_CYCLE;
 #else
-		float vel = -1*read_encoder_value(TIM1)/PID_CONTROL_CYCLE;
+		vel[0] = -1*read_encoder_value(TIM1)/PID_CONTROL_CYCLE;
 #endif
 
-		int output = (int)pid_compute(motor_vel_pid, vel);
-		int duty = abs(output);
+#if ENC_POLARITY1 == 0
+		vel[1] = read_encoder_value(TIM2)/PID_CONTROL_CYCLE;
+#else
+		vel[1] = -1*read_encoder_value(TIM2)/PID_CONTROL_CYCLE;
+#endif
 
-		duty = duty>htim3.Init.Period ? htim3.Init.Period : duty;
+		int output[2];
+		int duty[2];
+
+		for(uint8_t i=0; i<2; i++){
+			output[i] = pid_compute(&motor_vel_pid[i], vel[i]);
+			duty[i] = duty>htim3.Init.Period ? htim3.Init.Period : duty[i];
+		}
 
 
-#if MOTOR_POLARITY == 0
+#if MOTOR_POLARITY0 == 0
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, output>0 ? GPIO_PIN_RESET : GPIO_PIN_SET);
 #else
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, output>0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
 #endif
 
-		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, duty);
-#ifdef DEBUG
+#if MOTOR_POLARITY1 == 0
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, output>0 ? GPIO_PIN_RESET : GPIO_PIN_SET);
+#else
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, output>0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+#endif
+
+
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, duty[0]);
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, duty[1]);
+
+#if DEBUG == 0
 		static uint8_t index = 0;
-		if(index==50){
-			printf("vel:%f, output:%d/r/n", vel, output);
+		if(index == 50){
+			printf("vel:%f, output:%d/r/n", vel[0], output[0]);
 			index=0;
 		}
 		index++;
@@ -166,11 +191,16 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM17_Init();
   MX_TIM3_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
   HAL_TIM_Base_Start_IT(&htim17); // PID control
-  pid_init(motor_vel_pid, PID_CONTROL_CYCLE, KP,  KD, KI, 0);
+
+  for(uint8_t i=0; i<2; i++){
+	  pid_init(&motor_vel_pid[i], PID_CONTROL_CYCLE, kp[i],  kd[i], ki[i], setpoint[i]);
+  }
+
 
   /* USER CODE END 2 */
 
@@ -327,6 +357,55 @@ static void MX_TIM1_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 0;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 65535;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 0;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 0;
+  if (HAL_TIM_Encoder_Init(&htim2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
   * @brief TIM3 Initialization Function
   * @param None
   * @retval None
@@ -374,6 +453,10 @@ static void MX_TIM3_Init(void)
   sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
@@ -481,7 +564,17 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PA7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB7 */
   GPIO_InitStruct.Pin = GPIO_PIN_7;
