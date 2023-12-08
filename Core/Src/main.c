@@ -195,6 +195,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
+  HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
   HAL_TIM_Base_Start_IT(&htim17); // PID control
 
   for(uint8_t i=0; i<2; i++){
